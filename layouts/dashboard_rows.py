@@ -44,7 +44,7 @@ class DashboardRows:
             # Distribuição de pragas
             dbc.Col([
                 dbc.Card([
-                    dbc.CardHeader("Principais Tipos de Pragas PT201", className="text-center"),
+                    dbc.CardHeader("Top 10 Pragas por Código PT201", className="text-center"),
                     dbc.CardBody([
                         dcc.Graph(id="pest-distribution")
                     ])
@@ -64,7 +64,7 @@ class DashboardRows:
             # Análise por campo
             dbc.Col([
                 dbc.Card([
-                    dbc.CardHeader("Top 10 Campos com Maior Incidência", className="text-center"),
+                    dbc.CardHeader("Top 10 Campos com Praga Dominante", className="text-center"),
                     dbc.CardBody([
                         dcc.Graph(id="field-analysis")
                     ])
@@ -74,7 +74,7 @@ class DashboardRows:
             # Cultura x Severidade
             dbc.Col([
                 dbc.Card([
-                    dbc.CardHeader("Severidade por Cultura", className="text-center"),
+                    dbc.CardHeader("Severidade por Combinação Cultura-Praga", className="text-center"),
                     dbc.CardBody([
                         dcc.Graph(id="crop-severity")
                     ])
@@ -104,7 +104,7 @@ class DashboardRows:
             # Matriz de correlação praga-campo
             dbc.Col([
                 dbc.Card([
-                    dbc.CardHeader("Co-ocorrência Praga-Cultura", className="text-center"),
+                    dbc.CardHeader("Co-ocorrência Código Praga-Cultura", className="text-center"),
                     dbc.CardBody([
                         dcc.Graph(id="co-occurrence")
                     ])

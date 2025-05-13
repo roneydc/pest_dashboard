@@ -199,40 +199,124 @@ class DataProcessor:
         
     def get_pest_distribution(self):
         """
-        Obtém dados para gráfico de distribuição de pragas
+        Obtém dados para gráfico de distribuição de pragas agrupadas por et_code_pest
         
         Returns:
-            pandas.DataFrame: DataFrame com distribuição de pragas
+            pandas.DataFrame: DataFrame com distribuição de pragas por tipo básico
         """
         if self.filtered_df is None or len(self.filtered_df) == 0:
-            return pd.DataFrame()
+            # Retornar DataFrame vazio com as colunas esperadas
+            return pd.DataFrame(columns=['praga_base', 'count', 'percentage'])
+
+        try:
+            # Criar uma cópia do DataFrame para processamento
+            df = self.filtered_df.copy()
             
-        # Distribuição de Pragas
-        pest_counts = self.filtered_df['et_name_pest'].value_counts().reset_index()
-        pest_counts.columns = ['et_name_pest', 'count']
-        pest_counts = pest_counts.sort_values('count', ascending=False).head(MAX_TOP_ITEMS)
-        
-        return pest_counts
+            # Verificar se a coluna et_name_pest existe
+            if 'et_name_pest' in df.columns:
+                # Extrair o nome básico da praga (antes do hífen se existir)
+                df['praga_base'] = df['et_name_pest'].apply(lambda x: x.split(' - ')[0] if isinstance(x, str) and ' - ' in x else x)
+                
+                # Agrupar por tipo básico de praga
+                praga_counts = df.groupby('praga_base').size().reset_index(name='count')
+                
+                # Calcular a porcentagem
+                total = praga_counts['count'].sum()
+                praga_counts['percentage'] = (praga_counts['count'] / total * 100).round(2)
+                
+                # Ordenar pela contagem
+                praga_counts = praga_counts.sort_values('count', ascending=False).head(MAX_TOP_ITEMS)
+                
+                # Adicionar código de praga se disponível
+                if 'et_code_pest' in df.columns:
+                    # Para cada tipo básico de praga, encontrar os códigos associados
+                    praga_codes = {}
+                    for praga in praga_counts['praga_base']:
+                        # Filtrar registros para esta praga
+                        praga_df = df[df['praga_base'] == praga]
+                        # Obter os códigos únicos
+                        codes = praga_df['et_code_pest'].unique()
+                        # Armazenar em um dicionário
+                        praga_codes[praga] = list(codes)
+                    
+                    # Converter o dicionário para uma série
+                    praga_counts['codigos'] = praga_counts['praga_base'].map(lambda x: ', '.join(praga_codes.get(x, [])))
+                    
+                    # Também armazenar o número de códigos diferentes
+                    praga_counts['num_codes'] = praga_counts['praga_base'].map(lambda x: len(praga_codes.get(x, [])))
+                
+                return praga_counts
+            else:
+                # Se a coluna et_name_pest não existir, retornar DataFrame vazio
+                return pd.DataFrame(columns=['praga_base', 'count', 'percentage'])
+                
+        except Exception as e:
+            print(f"Erro ao processar distribuição de pragas por tipo básico: {e}")
+            # Em caso de erro, retornar DataFrame vazio
+            return pd.DataFrame(columns=['praga_base', 'count', 'percentage'])
         
     def get_field_analysis(self):
         """
-        Obtém dados para análise por campo
+        Obtém dados para análise por campo com detalhes de pragas
         
         Returns:
-            pandas.DataFrame: DataFrame com análise por campo
+            pandas.DataFrame: DataFrame com análise por campo e detalhes de pragas
         """
         if self.filtered_df is None or len(self.filtered_df) == 0:
-            return pd.DataFrame()
+            # Retornar DataFrame vazio com as colunas esperadas
+            return pd.DataFrame(columns=['loc_name', 'count'])
             
-        # Análise por Campo
+        # Versão original - apenas análise por campo
         field_analysis = self.filtered_df.groupby('loc_name').size().reset_index(name='count')
         field_analysis = field_analysis.sort_values('count', ascending=False).head(MAX_TOP_ITEMS)
         
-        return field_analysis
+        # Nova versão - Análise por Campo com dominância de pragas
+        try:
+            # Verificar se a coluna et_code_pest existe
+            if 'et_code_pest' in self.filtered_df.columns:
+                # Análise por Campo com contagem de pragas por campo
+                field_pest_analysis = self.filtered_df.groupby(['loc_name', 'et_code_pest']).size().reset_index(name='count')
+                
+                # Agregar para obter o total por campo e os tipos de pragas mais comuns
+                field_totals = field_pest_analysis.groupby('loc_name')['count'].sum().reset_index(name='total')
+                
+                # Para cada campo, encontrar a praga mais comum
+                top_pests_by_field = field_pest_analysis.sort_values('count', ascending=False).groupby('loc_name').first().reset_index()
+                
+                # Juntar as informações
+                result = field_totals.merge(top_pests_by_field[['loc_name', 'et_code_pest', 'count']], on='loc_name', suffixes=('', '_top_pest'))
+                
+                # Renomear a coluna para clareza
+                result.rename(columns={'count': 'top_pest_count'}, inplace=True)
+                
+                # Calcular a porcentagem que a praga principal representa
+                result['top_pest_percentage'] = (result['top_pest_count'] / result['total'] * 100).round(1)
+                
+                # Ordenar por total e pegar os top campos
+                result = result.sort_values('total', ascending=False).head(MAX_TOP_ITEMS)
+                
+                # Adicionar informação do nome da praga se disponível
+                if 'et_name_pest' in self.filtered_df.columns:
+                    pest_mapping = self.filtered_df[['et_code_pest', 'et_name_pest']].drop_duplicates().set_index('et_code_pest')['et_name_pest'].to_dict()
+                    result['top_pest_name'] = result['et_code_pest'].map(pest_mapping)
+                else:
+                    result['top_pest_name'] = result['et_code_pest']
+                
+                # Criar coluna combinada para exibição
+                result['field_with_pest'] = result['loc_name'] + ' (' + result['et_code_pest'] + ')'
+                
+                return result
+            else:
+                # Se não tiver a coluna necessária, usar análise simples
+                return field_analysis
+        except Exception as e:
+            print(f"Erro ao processar análise de campos por praga: {e}")
+            # Em caso de erro, voltar para análise simples
+            return field_analysis
         
     def get_crop_severity(self):
         """
-        Obtém dados para análise de severidade por cultura
+        Obtém dados para análise de severidade por cultura com detalhes de pragas
         
         Returns:
             tuple: (pandas.DataFrame, str) - (dados, nome da coluna de severidade)
@@ -247,12 +331,48 @@ class DataProcessor:
                 severity_col = col
                 break
         
-        if severity_col:
-            crop_severity = self.filtered_df.groupby('et_name_crop')[severity_col].mean().reset_index()
-            crop_severity = crop_severity.sort_values(severity_col, ascending=False).head(MAX_TOP_ITEMS)
-            return crop_severity, severity_col
-        else:
+        if not severity_col:
             return pd.DataFrame(), None
+        
+        # Versão original - severidade média por cultura
+        crop_severity_simple = self.filtered_df.groupby('et_name_crop')[severity_col].mean().reset_index()
+        crop_severity_simple = crop_severity_simple.sort_values(severity_col, ascending=False).head(MAX_TOP_ITEMS)
+        
+        # Nova versão - com detalhes por praga
+        try:
+            # Verificar se temos a coluna et_code_pest
+            if 'et_code_pest' in self.filtered_df.columns:
+                # Agrupar por cultura e código de praga
+                crop_pest_severity = self.filtered_df.groupby(['et_name_crop', 'et_code_pest'])[severity_col].agg(['mean', 'count']).reset_index()
+                
+                # Renomear colunas para clareza
+                crop_pest_severity.columns = ['et_name_crop', 'et_code_pest', 'mean_severity', 'count']
+                
+                # Filtrar para ter um número mínimo de registros para cada combinação cultura-praga
+                min_records = 3  # Ajustar conforme necessário
+                crop_pest_severity = crop_pest_severity[crop_pest_severity['count'] >= min_records]
+                
+                # Adicionar nome da praga se disponível
+                if 'et_name_pest' in self.filtered_df.columns:
+                    pest_mapping = self.filtered_df[['et_code_pest', 'et_name_pest']].drop_duplicates().set_index('et_code_pest')['et_name_pest'].to_dict()
+                    crop_pest_severity['pest_name'] = crop_pest_severity['et_code_pest'].map(pest_mapping)
+                else:
+                    crop_pest_severity['pest_name'] = crop_pest_severity['et_code_pest']
+                
+                # Criar uma coluna para facilitar a exibição
+                crop_pest_severity['crop_with_pest'] = crop_pest_severity['et_name_crop'] + ' (' + crop_pest_severity['et_code_pest'] + ')'
+                
+                # Ordenar por severidade média
+                crop_pest_severity = crop_pest_severity.sort_values('mean_severity', ascending=False).head(MAX_TOP_ITEMS)
+                
+                return crop_pest_severity, severity_col
+            else:
+                # Se não tiver et_code_pest, usar a versão simples
+                return crop_severity_simple, severity_col
+        except Exception as e:
+            print(f"Erro ao processar severidade por cultura e praga: {e}")
+            # Em caso de erro, usar a versão simples
+            return crop_severity_simple, severity_col
             
     def get_monthly_severity(self):
         """

@@ -4,7 +4,8 @@ Contém constantes e configurações globais
 """
 
 # Configurações de arquivos
-DATA_PATH = 'D:/dados_agritask/pest_data_by_code/pest_code_PT201.csv'
+#DATA_PATH = 'D:/dados_agritask/pest_data_by_code/pest_code_PT201.csv'
+DATA_PATH = 'D:/dados_agritask/pest_code_resume_PT201.csv'
 SHAPEFILE_PATH = 'D:/Imagens_Planet/Indices semanais/Bando_Imagens/Limites/Grupo Bom Jesus (1)/Grupo Bom Jesus.shp'
 
 # Configurações do servidor
