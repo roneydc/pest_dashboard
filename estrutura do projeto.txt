@@ -1,0 +1,31 @@
+# Estrutura do Projeto: Dashboard de Monitoramento
+
+pest_dashboard/
+│
+├── app.py                   # Ponto de entrada da aplicação
+├── config.py                # Configurações globais
+│
+├── data/
+│   ├── data_loader.py       # Carregamento de dados
+│   ├── data_processor.py    # Processamento de dados
+│   └── geo_loader.py        # Carregamento de dados geográficos
+│
+├── components/
+│   ├── header.py            # Componente de cabeçalho
+│   ├── footer.py            # Componente de rodapé
+│   └── filter_panel.py      # Painel de filtros
+│
+├── layouts/
+│   ├── main_layout.py       # Layout principal
+│   ├── kpi_cards.py         # Layout de indicadores KPI
+│   └── dashboard_rows.py    # Linhas do dashboard
+│
+├── callbacks/
+│   ├── callback_manager.py  # Gerenciador central de callbacks
+│   └── update_graphs.py     # Funções para atualizar gráficos
+│
+└── visualizations/
+    ├── time_series.py       # Gráficos de séries temporais
+    ├── geographic.py        # Visualizações geográficas
+    ├── distribution.py      # Gráficos de distribuição
+    └── correlation.py       # Gráficos de correlação
