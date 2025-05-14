@@ -136,10 +136,10 @@ class DistributionVisualizer:
             return fig
             
         # Verificar se temos as colunas necessárias para a versão detalhada
-        if 'total' in field_analysis.columns and 'et_code_pest' in field_analysis.columns:
+        if 'total' in field_analysis.columns and 'praga_base' in field_analysis.columns:
             # Adicionar a coluna field_with_pest se não existir
             if 'field_with_pest' not in field_analysis.columns:
-                field_analysis['field_with_pest'] = field_analysis['loc_name'] + ' (' + field_analysis['et_code_pest'] + ')'
+                field_analysis['field_with_pest'] = field_analysis['loc_name'] + ' (' + field_analysis['praga_base'] + ')'
             
             # Versão com detalhes da praga dominante
             fig = px.bar(
@@ -148,10 +148,10 @@ class DistributionVisualizer:
                 y='loc_name',
                 orientation='h',
                 title='Top 10 Campos com Maior Incidência (com Praga Principal)',
-                labels={'total': 'Número Total de Monitoramentos', 'loc_name': 'Campo'},
-                color='et_code_pest',  # Colorir por código de praga dominante
+                labels={'total': 'Número Total de Monitoramentos'},
+                color='praga_base',  # Colorir por código de praga dominante
                 hover_name='loc_name',
-                hover_data=['total', 'et_code_pest'],
+                hover_data=['total', 'praga_base'],
                 color_discrete_sequence=px.colors.qualitative.Bold
             )
             
@@ -182,7 +182,7 @@ class DistributionVisualizer:
                 y='loc_name',
                 orientation='h',
                 title='Top 10 Campos com Maior Incidência',
-                labels={'count': 'Número de Monitoramentos', 'loc_name': 'Campo'},
+                labels={'count': 'Número de Monitoramentos'},
                 color='count',
                 color_continuous_scale='Greens'
             )

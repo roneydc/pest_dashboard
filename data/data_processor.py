@@ -4,7 +4,9 @@ Classe para processamento de dados do Dashboard PT201
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from config import MONTH_ORDER, MAX_TOP_ITEMS
+
+if __name__ != "__main__":
+    from config import MONTH_ORDER, MAX_TOP_ITEMS
 
 class DataProcessor:
     """Classe responsável pelo processamento de dados"""
@@ -196,6 +198,7 @@ class DataProcessor:
         time_data = time_data.sort_values('date_sort')
         
         return time_data
+    
         
     def get_pest_distribution(self):
         """
@@ -270,25 +273,49 @@ class DataProcessor:
         field_analysis = self.filtered_df.groupby('loc_name').size().reset_index(name='count')
         field_analysis = field_analysis.sort_values('count', ascending=False).head(MAX_TOP_ITEMS)
         
+        def modificar_valor(valor):
+            if '%' in str(valor):
+                return '%'
+            elif 'individuals per meter' in str(valor):
+                return 'individuals per meter'
+            #elif 'adults' in str(valor) or 'small' in str(valor) or ' medium' in str(valor) or 'large' in str(valor) :
+            #    return 'individuals per meter'
+            else:
+                return valor
+            
+        
         # Nova versão - Análise por Campo com dominância de pragas
         try:
             # Verificar se a coluna et_code_pest existe
             if 'et_code_pest' in self.filtered_df.columns:
+                # extrair o nome básico da praga (antes do hífen se existir)
+                self.filtered_df['tipo_medicao'] = self.filtered_df['et_name_pest'].apply(lambda x: x.split(' - ')[1] if isinstance(x, str) and ' - ' in x else x)
+                self.filtered_df['tipo_medicao'] = self.filtered_df['tipo_medicao'].apply(modificar_valor)
+                self.filtered_df['praga_base'] = self.filtered_df['et_name_pest'].apply(lambda x: x.split(' - ')[0] if isinstance(x, str) and ' - ' in x else x)
+                
+                #extrari o tipo de medição
+                #self.filtered_df['medicao'] = self.filtered_df['et_name_pest'].apply(lambda x: x.split(' - ')[1] if isinstance(x, str) and ' - ' in x else x)
+                #print(self.filtered_df)
+
                 # Análise por Campo com contagem de pragas por campo
-                field_pest_analysis = self.filtered_df.groupby(['loc_name', 'et_code_pest']).size().reset_index(name='count')
+                #field_pest_analysis = self.filtered_df.groupby(['loc_name', 'et_name_pest']).size().reset_index(name='count')
+
+                #agrupar pelas colunas loc_name e et_name_pest e fazer a soma da coluna itens
+                field_pest_analysis = self.filtered_df.groupby(['loc_name', 'et_name_pest','praga_base', 'tipo_medicao'])['data_number'].sum().reset_index(name = 'count')
                 
                 # Agregar para obter o total por campo e os tipos de pragas mais comuns
-                field_totals = field_pest_analysis.groupby('loc_name')['count'].sum().reset_index(name='total')
-                
+                field_totals = field_pest_analysis.groupby(['loc_name','praga_base', 'tipo_medicao'])['count'].sum().reset_index(name='total')
+                print(field_totals)                
                 # Para cada campo, encontrar a praga mais comum
-                top_pests_by_field = field_pest_analysis.sort_values('count', ascending=False).groupby('loc_name').first().reset_index()
+                #top_pests_by_field = field_pest_analysis.sort_values('count', ascending=False).groupby('loc_name').first().reset_index()
                 
                 # Juntar as informações
-                result = field_totals.merge(top_pests_by_field[['loc_name', 'et_code_pest', 'count']], on='loc_name', suffixes=('', '_top_pest'))
+                result = field_totals.merge(field_pest_analysis[['loc_name', 'et_name_pest', 'count']], on='loc_name', suffixes=('', '_top_pest'))
                 
                 # Renomear a coluna para clareza
                 result.rename(columns={'count': 'top_pest_count'}, inplace=True)
-                
+                #extrair o nome da praga
+
                 # Calcular a porcentagem que a praga principal representa
                 result['top_pest_percentage'] = (result['top_pest_count'] / result['total'] * 100).round(1)
                 
@@ -296,18 +323,19 @@ class DataProcessor:
                 result = result.sort_values('total', ascending=False).head(MAX_TOP_ITEMS)
                 
                 # Adicionar informação do nome da praga se disponível
-                if 'et_name_pest' in self.filtered_df.columns:
-                    pest_mapping = self.filtered_df[['et_code_pest', 'et_name_pest']].drop_duplicates().set_index('et_code_pest')['et_name_pest'].to_dict()
-                    result['top_pest_name'] = result['et_code_pest'].map(pest_mapping)
-                else:
-                    result['top_pest_name'] = result['et_code_pest']
-                
+                result['top_pest_name'] = result['et_name_pest']
+
+                #renomeiar coluna top_pest_name
+                result.rename(columns={'top_pest_name': 'praga_base'}, inplace=True)
+            
                 # Criar coluna combinada para exibição
-                result['field_with_pest'] = result['loc_name'] + ' (' + result['et_code_pest'] + ')'
+                result['field_with_pest'] = result['loc_name'] + ' (' + result['praga_base'] + ')'
+                
                 
                 return result
             else:
                 # Se não tiver a coluna necessária, usar análise simples
+                print("⚠️ Coluna et_code_pest não encontrada. Usando análise simples por campo.")
                 return field_analysis
         except Exception as e:
             print(f"Erro ao processar análise de campos por praga: {e}")
@@ -436,3 +464,27 @@ class DataProcessor:
         y_data = crosstab.index.tolist()
         
         return z_data, x_data, y_data
+    
+if __name__ == "__main__":
+    import pandas as pd
+
+    # Configurações de visualização
+    MAX_TOP_ITEMS = 10
+    MAPBOX_STYLE = "carto-positron"
+    MONTH_ORDER = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    # Carregar os dados
+    df = pd.read_csv('D:/dados_agritask/pest_code_resume_PT201.csv')
+    
+    # Criar uma instância do processador de dados
+    processor = DataProcessor(df)
+    
+    # Processar as datas
+    processor.process_dates()
+
+    #aplicar os filtros vazios
+    processor.apply_filters(year_range=None, fields=None, crops=None, pests=None)
+    
+    #chamar a função get_field_analysis
+    field_analysis = processor.get_field_analysis()
+
+        
